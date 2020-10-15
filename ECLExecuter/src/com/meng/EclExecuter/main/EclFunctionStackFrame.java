@@ -22,6 +22,10 @@ public class EclFunctionStackFrame {
         pointer = function.start;
         params =  args;  
     }
+    
+    public EclThread getThread(){
+        return thread;
+    }
 
     public void nextFrame() {
         System.out.println(String.format("start:%x,end:%x,len:%d", function.start, function.end, function.end - function.start));
@@ -93,11 +97,11 @@ public class EclFunctionStackFrame {
         }
 
         public void set(int byteOffset, int value) {
-            var[byteOffset / 4] = new EclParamHolder(value);
+            var[byteOffset / 4] = EclParamHolder.get(value);
         }
 
         public void set(int byteOffset, float value) {
-            var[byteOffset / 4] = new EclParamHolder(value);
+            var[byteOffset / 4] = EclParamHolder.get(value);
         }
 
         public int getInt(int byteOffset) {

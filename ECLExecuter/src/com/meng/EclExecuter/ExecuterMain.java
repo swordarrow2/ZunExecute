@@ -12,6 +12,6 @@ public class ExecuterMain {
         // for (Map.Entry<String,EclFunction> entry:etm.eclFunctions.entrySet()) {
         //   System.out.println(entry.getValue() + ":" + entry.getKey());  
         //  }
-        etm.creatNewThread(null).invokeEclFunction(new EclParamHolder("main"));
+        etm.creatNewThread(null).invokeEclFunction(EclParamHolder.get("main"));
     }
 }

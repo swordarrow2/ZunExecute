@@ -94,12 +94,12 @@ public class EclFunctionHandler {
         EclThreadManager.creatNewThread(thread).invokeEclFunction(args);
     }
 
-    public void _16(String s0, int i1, int i2) {
-
+    public void _16(EclParamHolder... args) {
+        EclThreadManager.creatNewThread(thread).setEnemy(stack.peekEnemy()).invokeEclFunction(args);
     }
 
-    public void _17(int i0) {
-
+    public void _17(int i0, EclParamHolder... args) {
+        EclThreadManager.creatNewThread(thread).setEnemy(stack.peekEnemy()).setId(i0).invokeEclFunction(args);
     }
 
     public void _22(int i0, String s1) {
@@ -380,16 +380,15 @@ public class EclFunctionHandler {
 
     }
 
-    public void _300(String s0, float f1, float f2, int i3, int i4, int i5) {
-
+    public void _300(String s0, float x, float y, int life, int bonus, int item) {
+        Enemy e = stack.peekEnemy();
+        stack.push(new Enemy());
+        thread.invokeEclFunction(EclParamHolder.get(s0),EclParamHolder.get(e.x + x), EclParamHolder.get(e.y + y), EclParamHolder.get(life), EclParamHolder.get(bonus), EclParamHolder.get(item));
     }
 
-    public void _301(String s0, float f1, float f2, int i3, int i4, int i5) {
-        System.out.println("sub " + eclSubPack.subName + " start by ins_301");
-        FightScreen.instence.boss = new Enemy();
-        FightScreen.instence.boss.init(new Vector2(275, 450), 10, 700, new Task[]{new TaskMoveTo(193, 250)});
-        enemy = FightScreen.instence.boss;
-        // EclManager.toAddSubs.add(eclFile.eclManager.getSubPack(s0).setManager(laser).startByIns11(false));
+    public void _301(String s0, float x, float y, int life, int bonus, int item) {
+        stack.push(new Enemy());
+        thread.invokeEclFunction(EclParamHolder.get(s0),EclParamHolder.get(x), EclParamHolder.get(y), EclParamHolder.get(life), EclParamHolder.get(bonus), EclParamHolder.get(item));
     }
 
     public void _302(int i0) {
@@ -1349,25 +1348,25 @@ public class EclFunctionHandler {
                 break;
             case 11:
                 if(ins.param_count == 1){
-                    _11(new EclParamHolder(ins.readString()));
+                    _11(EclParamHolder.get(ins.readString()));
                     break;  
                 }
                 EclParamHolder[] args11 = new EclParamHolder[ins.param_count];
-                args11[0] = new EclParamHolder(ins.readString());
+                args11[0] = EclParamHolder.get(ins.readString());
                 for (int i = 1; i < args11.length; ++i) {
                     int type = ins.readInt();
                     switch (type) {
                         case 26985: //0x69 0x69 i i
-                            args11[i] = new EclParamHolder(ins.readInt());
+                            args11[i] = EclParamHolder.get(ins.readInt());
                             break; 
                         case 26214://0x66 0x66 f f
-                            args11[i] = new EclParamHolder(ins.readFloat());
+                            args11[i] = EclParamHolder.get(ins.readFloat());
                             break;
                         case 26217://0x69 0x66 i f
-                            args11[i] = new EclParamHolder((float)ins.readInt());
+                            args11[i] = EclParamHolder.get((float)ins.readInt());
                             break;
                         case 26982://0x66 0x69 f i
-                            args11[i] = new EclParamHolder((int) ins.readFloat());
+                            args11[i] = EclParamHolder.get((int) ins.readFloat());
                             break;
                         default:
                             throw new RuntimeException("unexpect value:" + type);
@@ -1389,25 +1388,25 @@ public class EclFunctionHandler {
                 break;
             case 15:
                 if(ins.param_count == 1){
-                    _15(new EclParamHolder(ins.readString()));
+                    _15(EclParamHolder.get(ins.readString()));
                     break;  
                 }
                 EclParamHolder[] args15 = new EclParamHolder[ins.param_count];
-                args15[0] = new EclParamHolder(ins.readString());
+                args15[0] = EclParamHolder.get(ins.readString());
                 for (int i = 1; i < args15.length; ++i) {
                     int type = ins.readInt();
                     switch (type) {
                         case 26985: //0x69 0x69 i i
-                            args15[i] = new EclParamHolder(ins.readInt());
+                            args15[i] = EclParamHolder.get(ins.readInt());
                             break; 
                         case 26214://0x66 0x66 f f
-                            args15[i] = new EclParamHolder(ins.readFloat());
+                            args15[i] = EclParamHolder.get(ins.readFloat());
                             break;
                         case 26217://0x69 0x66 i f
-                            args15[i] = new EclParamHolder((float)ins.readInt());
+                            args15[i] = EclParamHolder.get((float)ins.readInt());
                             break;
                         case 26982://0x66 0x69 f i
-                            args15[i] = new EclParamHolder((int) ins.readFloat());
+                            args15[i] = EclParamHolder.get((int) ins.readFloat());
                             break;
                         default:
                             throw new RuntimeException("unexpect value:" + type);

@@ -13,13 +13,15 @@ public class EclThread {
     public final EclFunctionStack functionStack = new EclFunctionStack();
     private int waitFrame = 0;
     private int id = -1;
+    private Enemy enemy = null;
 
     public EclThread(EclThread parent) {
         this.parent = parent;
     }
 
-    public void setId(int id) {
+    public EclThread setId(int id) {
         this.id = id;
+        return this;
     }
 
     public int getId() {
@@ -38,8 +40,14 @@ public class EclThread {
         return --waitFrame;
     }
 
-    public void invokeEclFunction(EclParamHolder... args) {
+    public EclThread invokeEclFunction(EclParamHolder... args) {
         functionStack.push(current = new EclFunctionStackFrame(this, args));
+        return this;
+    }
+
+    public EclThread setEnemy(Enemy e) {
+        enemy = e;
+        return this;
     }
 
     public void functionReturn() {
