@@ -2,16 +2,20 @@ package com.meng.EclExecuter.main;
 
 import com.badlogic.gdx.utils.IntIntMap;
 import com.badlogic.gdx.utils.IntMap;
+import com.meng.EclExecuter.ExecuterMain;
+import com.meng.EclExecuter.gameEntity.Enemy;
+import com.meng.EclExecuter.gameEntity.MapleEnemy;
 import com.meng.EclExecuter.utils.EclFunction;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Random;
+import java.util.Scanner;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.LinkedList;
 
 public class EclThreadManager {
 
@@ -19,37 +23,52 @@ public class EclThreadManager {
     public final Map<String,EclFunction> eclFunctions = new LinkedHashMap<>();
 
     private static EclThreadManager instance = new EclThreadManager();
-    private ArrayList<EclThread> threads = new ArrayList<>();
-    private ArrayList<Runnable> canntConcurrent = new ArrayList<>();
+    public ArrayList<EclThread> threads = new ArrayList<>();
+    public ArrayList<Runnable> canntConcurrent = new ArrayList<>();
     public final EclGlobalVarStorage globalVars = new EclGlobalVarStorage();
+    public static int gameT=0;
+    public EclEnemyStack enemyStack = new EclEnemyStack(){
+        {
+            push(new MapleEnemy());
+        }
+    };
 
     private ScheduledThreadPoolExecutor ExecutorService = (ScheduledThreadPoolExecutor) Executors.newScheduledThreadPool(1);
-
     private EclThreadManager() {
+
         ExecutorService.scheduleAtFixedRate(new Runnable(){
 
                 @Override
                 public void run() {
-                    threads.forEach(new Consumer<EclThread>(){
+                    //    System.out.println(gameT++);
+                    try {
+                        threads.forEach(new Consumer<EclThread>(){
 
-                            @Override
-                            public void accept(EclThread p1) {
-                                if (p1.getWaitFrame() > 0) {
-                                    p1.decWaitFrame();
-                                } else {
-                                    p1.nextFrame();
+                                @Override
+                                public void accept(EclThread p1) {
+                                    //   System.out.println("wait:" + p1.getWaitFrame());
+                                    if (p1.getWaitFrame() > 0) {
+                                        p1.decWaitFrame();
+                                    } else {
+                                        p1.nextFrame();
+                                    }
                                 }
-                            }
-                        });
+                            });
+
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        new Scanner(System.in).next();
+                    }
                     if (canntConcurrent.size() != 0) {
                         for (Runnable r:canntConcurrent) {
                             r.run(); 
                         }
+                        canntConcurrent.clear(); 
                     }
-                    canntConcurrent.clear();
-                    //System.out.println("next");
+                    ExecuterMain.frameCount++;
+                    ExecuterMain.currentPartFrameCount++;
                 }
-            }, 0, 16666, TimeUnit.MICROSECONDS);
+            }, 0, 100, TimeUnit.MILLISECONDS);
     }
 
     public static EclThreadManager getInstance() {
@@ -81,10 +100,52 @@ public class EclThreadManager {
             });
     }
 
+    public void ins_525() {
+        canntConcurrent.add(new Runnable(){
+
+                @Override
+                public void run() {
+                    EclThread et = threads.get(0);
+                    threads.clear();
+                    threads.add(et); 
+                }
+            });
+    }
+
     public static EclThread creatNewThread(EclThread parent) {
-        EclThread eclThread = new EclThread(parent);
-        instance.threads.add(eclThread);
+        final EclThread eclThread = new EclThread(parent);
+        instance.canntConcurrent.add(new Runnable(){
+
+                @Override
+                public void run() {
+                    instance.threads.add(eclThread);
+                }
+            });
         return eclThread;
+    }
+
+    public class EclEnemyStack {
+
+        private LinkedList<Enemy> enemys = new LinkedList<>();
+
+        public Enemy push(Enemy e) {
+            enemys.add(e);
+            return e;
+        }
+
+        public Enemy popEnemy() {
+            if (enemys.size() == 0) {
+                return null;
+            }
+            return enemys.removeLast();
+        }
+
+        public Enemy peekEnemy() {
+            if (enemys.size() == 0) {
+                return null;
+            }
+            return enemys.getLast();
+        }
     }
 
     public class EclGlobalVarStorage {
@@ -118,9 +179,9 @@ public class EclThreadManager {
                 case -9949:
                     return values.get(i, 0);
                 case -9954:
-                    return 10;//boss.hp;
+                    return (int)enemyStack.peekEnemy().hp;//enemy.hp;
                 case -9959:
-                    return 0;// GameMain.difficulty;
+                    return ExecuterMain.difficult;// GameMain.difficulty;
                 case -9978:
                 case -9979:
                 case -9980:
@@ -129,7 +190,7 @@ public class EclThreadManager {
                 case -9986:
                     return 0;
                 case -9988:
-                    return 60;//FightScreen.instence.gameTimeFlag;
+                    return ExecuterMain.currentPartFrameCount;//FightScreen.instence.gameTimeFlag;
                 case -10000:
                     return random.nextInt();
                 default:

@@ -6,6 +6,7 @@ import com.meng.EclExecuter.gameEntity.Enemy;
 import com.meng.EclExecuter.utils.EclParamHolder;
 import com.meng.EclExecuter.utils.MathHelper;
 import java.util.Random;
+import com.meng.EclExecuter.ExecuterMain;
 
 public class EclFunctionHandler {
     private EclThread thread;
@@ -32,17 +33,25 @@ public class EclFunctionHandler {
         } 
 
         public int getInt(int key) {
+            System.out.println("key:"+key);
             if(key >= 0){
                 return frame.functionPrivateVars.getInt(key);
+            }
+            if(key == -1 || key == -2){
+                return thread.stack.popInt();
             }
             return globalVars.getInt(key);
         }
         
-        public float getFloat(float key){
-            if(key >= 0){
-                return frame.functionPrivateVars.getInt((int)key);
+        public float getFloat(int key){
+            float v = Float.intBitsToFloat(key);
+            if(v >= 0){
+                return frame.functionPrivateVars.getFloat((int)v);
             }
-            return globalVars.getFloat(Float.floatToIntBits(key));
+            if(v == -1.0f || v == -2.0f){
+                return thread.stack.popFloat();
+            }
+            return globalVars.getFloat(key);
         }
     }
     
@@ -56,37 +65,41 @@ public class EclFunctionHandler {
         varWrapper = new VarWrapper();
     }
     
+    public void notifyCurrent(EclFunctionStackFrame f){
+        frame = f;
+    }
+    
     public void _0() {
 
     }
 
     public void _1() {
-        
+        frame.functionEnd = true;
     }
 
     public void _10() {
-        thread.functionReturn();
+       // frame.functionEnd = true;
     }
 
     public void _11(EclParamHolder... args) {
+        frame.needBreak = true;
         thread.invokeEclFunction(args);
-        frame = thread.current;
+        return;
     }
 
     public void _12(int i0, int i1) { // goto
-        gotoIns(i0);
+        frame.pointer += i0 - 24;
     }
 
     public void _13(int i0, int i1) { // unless goto
         if (stack.popInt() == 0) {
-            gotoIns(i0);
+            frame.pointer += i0 - 24;
         }
     }
 
     public void _14(int i0, int i1) { // if goto
-        if (stack.popInt() != 0) {
-            gotoIns(i0);
-            --insPosition;
+        if (stack.popInt() == 1) {
+            frame.pointer += i0 - 24;
         }
     }
 
@@ -95,11 +108,11 @@ public class EclFunctionHandler {
     }
 
     public void _16(EclParamHolder... args) {
-        EclThreadManager.creatNewThread(thread).setEnemy(stack.peekEnemy()).invokeEclFunction(args);
+        EclThreadManager.creatNewThread(thread).setEnemy(EclThreadManager.getInstance().enemyStack.peekEnemy()).invokeEclFunction(args);
     }
 
     public void _17(int i0, EclParamHolder... args) {
-        EclThreadManager.creatNewThread(thread).setEnemy(stack.peekEnemy()).setId(i0).invokeEclFunction(args);
+        EclThreadManager.creatNewThread(thread).setEnemy(EclThreadManager.getInstance().enemyStack.peekEnemy()).setId(i0).invokeEclFunction(args);
     }
 
     public void _22(int i0, String s1) {
@@ -107,7 +120,8 @@ public class EclFunctionHandler {
     }
 
     public void _23(int i0) {
-
+        frame.needBreak = true;
+     //   thread.setWaitFrame(i0);        
     }
 
     public void _30(String s0, int i1) {
@@ -321,11 +335,7 @@ public class EclFunctionHandler {
     }
 
     public void _78(int i0) {
-        if (i0 > 0) {
-            stack.push(1);
-        } else {
-            stack.push(0);
-        }
+        
     }
 
     public void _81(float f0, float f1, float f2, float f3) {
@@ -381,14 +391,14 @@ public class EclFunctionHandler {
     }
 
     public void _300(String s0, float x, float y, int life, int bonus, int item) {
-        Enemy e = stack.peekEnemy();
-        stack.push(new Enemy());
-        thread.invokeEclFunction(EclParamHolder.get(s0),EclParamHolder.get(e.x + x), EclParamHolder.get(e.y + y), EclParamHolder.get(life), EclParamHolder.get(bonus), EclParamHolder.get(item));
+        Enemy e = EclThreadManager.getInstance().enemyStack.peekEnemy();
+        EclThreadManager.getInstance().enemyStack.push(new Enemy(e.x + x, e.y + y, life, bonus, item));
+        EclThreadManager.getInstance().creatNewThread(thread).invokeEclFunction(EclParamHolder.get(s0));
     }
 
     public void _301(String s0, float x, float y, int life, int bonus, int item) {
-        stack.push(new Enemy());
-        thread.invokeEclFunction(EclParamHolder.get(s0),EclParamHolder.get(x), EclParamHolder.get(y), EclParamHolder.get(life), EclParamHolder.get(bonus), EclParamHolder.get(item));
+        EclThreadManager.getInstance().enemyStack.push(new Enemy(x, y, life, bonus, item));
+        EclThreadManager.getInstance().creatNewThread(thread).invokeEclFunction(EclParamHolder.get(s0));
     }
 
     public void _302(int i0) {
@@ -784,24 +794,35 @@ public class EclFunctionHandler {
     }
 
     public void _511(int i0) {
-        enemy.hp = i0;
+        
     }
 
     public void _512(int i0) {
-        if (i0 == -1) {
+   /*     if (i0 == -1) {
             FightScreen.instence.onBoss = false;
         } else {
             FightScreen.instence.onBoss = true;
         }
-        _301("", 0, 0, 0, 0, 0);
+        _301("", 0, 0, 0, 0, 0);*/
     }
 
     public void _513() {
 
     }
 
-    public void _514(int i0, int i1, int i2, String s3) {
-        EclManager.nextSub = EclManager.getSubPack("BossCard1").setManager(enemy);
+    public void _514(int i0, final int hp, final int time, final String functionName) {
+        Runnable r = new Runnable(){
+
+            @Override
+            public void run() {
+                if(EclThreadManager.getInstance().enemyStack.peekEnemy().hp == hp || ExecuterMain.currentPartFrameCount == time){
+                    thread.functionStack.pop();
+                    thread.invokeEclFunction(EclParamHolder.get(functionName));
+                }
+            }
+        };
+        thread.watcher = r;
+    //    EclManager.nextSub = EclManager.getSubPack("BossCard1").setManager(enemy);
     }
 
     public void _515(int i0) {
@@ -845,7 +866,7 @@ public class EclFunctionHandler {
     }
 
     public void _525() {
-
+        EclThreadManager.getInstance().ins_525();
     }
 
     public void _526(float f0) {
@@ -885,7 +906,6 @@ public class EclFunctionHandler {
     }
 
     public void _535(int i0, int i1, int i2, int i3, int i4) {
-        EclThreadManager.EclGlobalVarStorage stack = EclThreadManager.getInstance().globalVars;
         switch (0/*GameMain.difficulty*/) {
             case 0:
                 frame.functionPrivateVars.set(i0, i1);
@@ -903,7 +923,6 @@ public class EclFunctionHandler {
     }
 
     public void _536(float f0, float f1, float f2, float f3, float f4) {
-        EclThreadManager.EclGlobalVarStorage stack = EclThreadManager.getInstance().globalVars;
         switch (0/*GameMain.difficulty*/) {
             case 0:
                 frame.functionPrivateVars.set((int) f0, f1);
@@ -918,6 +937,7 @@ public class EclFunctionHandler {
                 frame.functionPrivateVars.set((int) f0, f4);
                 break;
         }
+        
     }
 
     public void _537(int i0, int i1, int i2, String s3) {
@@ -1101,16 +1121,16 @@ public class EclFunctionHandler {
     }
 
     public void _609(int danmakuNum, int num, int way, int mode, int inta, int intb, float floatr, float floats) {
-        frame.danmakus.get(frame.hashCode()).addChange(num, new ChangeTask(way == 0, mode, inta, intb, 0, 0, floatr, floats, 0, 0));
+    //    frame.danmakus.get(frame.hashCode()).addChange(num, new ChangeTask(way == 0, mode, inta, intb, 0, 0, floatr, floats, 0, 0));
     }
 
     public void _610(int danmakuNum, int num, int way, int mode, int inta, int intb, int intc, int intd, float floatr,
                       float floats, float floatm, float floatn) {
-        frame.danmakus.get(frame.hashCode()).addChange(num, new ChangeTask(way == 0, mode, inta, intb, intc, intd, floatr, floats, floatm, floatn));
+     //   frame.danmakus.get(frame.hashCode()).addChange(num, new ChangeTask(way == 0, mode, inta, intb, intc, intd, floatr, floats, floatm, floatn));
     }
 
     public void _611(int danmakuNum, int way, int mode, int inta, int intb, float floatr, float floats) {
-        frame.danmakus.get(frame.hashCode()).addChange(new ChangeTask(way == 0, mode, inta, intb, 0, 0, floatr, floats, 0, 0));
+    //    frame.danmakus.get(frame.hashCode()).addChange(new ChangeTask(way == 0, mode, inta, intb, 0, 0, floatr, floats, 0, 0));
     }
 
     public void _612(int danmakuNum, int way, int mode, int inta, int intb, int intc, int intd, float floatr,
@@ -1122,7 +1142,7 @@ public class EclFunctionHandler {
     }
 
     public void _614(int danmakuA, int danmakuB) {
-        eclBulletShooters.put(danmakuA, eclBulletShooters.get(danmakuB).clone());
+   //     eclBulletShooters.put(danmakuA, eclBulletShooters.get(danmakuB).clone());
     }
 
     public void _615(float floatR) {
@@ -1181,7 +1201,7 @@ public class EclFunctionHandler {
     }
 
     public void _628(int danmakuNum, float floatX, float y) {
-        frame.danmakus.get(frame.hashCode()).setCenter(floatX + GameMain.width / 2f, GameMain.height - y);
+      //  frame.danmakus.get(frame.hashCode()).setCenter(floatX + GameMain.width / 2f, GameMain.height - y);
     }
 
     public void _629(float floatR, int intRgb) {
@@ -1336,6 +1356,10 @@ public class EclFunctionHandler {
     }
 
     public void invoke(EclFunctionStackFrame.EclIns ins) {
+        System.out.println(frame.name+":"+ins+" start:"+Integer.toHexString(frame.function.start)+" end:"+Integer.toHexString(frame.function.end));
+        if((ins.rank_mask & ExecuterMain.difficult) == 0){
+            return;
+        }
         switch (ins.id) {
             case 0:
                 _0();
@@ -1415,8 +1439,8 @@ public class EclFunctionHandler {
                 _15(args15);
                 break;
             case 16:
-                _16(ins.readString(), ((ins.param_mask >> 1) & 1) == 1 ? varWrapper.getInt(ins.readInt()) : ins.readInt(),
-                    ((ins.param_mask >> 2) & 1) == 1 ? varWrapper.getInt(ins.readInt()) : ins.readInt());
+                _16(EclParamHolder.get(ins.readString()), EclParamHolder.get(((ins.param_mask >> 1) & 1) == 1 ? varWrapper.getInt(ins.readInt()) : ins.readInt()),
+                    EclParamHolder.get(((ins.param_mask >> 2) & 1) == 1 ? varWrapper.getInt(ins.readInt()) : ins.readInt()));
                 break;
             case 17:
                 _17((ins.param_mask & 1) == 1 ? varWrapper.getInt(ins.readInt()) : ins.readInt());
@@ -1425,20 +1449,26 @@ public class EclFunctionHandler {
                 _22((ins.param_mask & 1) == 1 ? varWrapper.getInt(ins.readInt()) : ins.readInt(), ins.readString());
                 break;
             case 23:
-                // _23((ins.param_mask & 1) == 1 ? eclGlobalVars.getInt(ins.readInt()) :
-                // ins.readInt());
+                _23((ins.param_mask & 1) == 1 ? varWrapper.getInt(ins.readInt()) : ins.readInt());
                 break;
             case 30:
                 _30(ins.readString(), ((ins.param_mask >> 1) & 1) == 1 ? varWrapper.getInt(ins.readInt()) : ins.readInt());
                 break;
             case 40:
-                _40((ins.param_mask & 1) == 1 ? varWrapper.getInt(ins.readInt()) : ins.readInt());
+                _40(ins.readInt());
                 break;
             case 42:
-                _42(((ins.param_mask & 1) == 1) ? varWrapper.getInt(ins.readInt()) : ins.readInt());
+                _42((ins.param_mask & 1) == 1 ? varWrapper.getInt(ins.readInt()) : ins.readInt());
                 break;
             case 43:
-                _43(ins.readInt());
+                int k = ins.readInt();
+                if(k >= 0){
+                    frame.functionPrivateVars.set(k,stack.popInt());
+                }else {
+                    EclThreadManager.getInstance().globalVars.put(k,stack.popInt());
+                }
+             //   varWrapper.putGlobal(ins.readInt(),stack.popInt());
+             //   _43((ins.param_mask & 1) == 1 ? varWrapper.getInt(ins.readInt()) : ins.readInt());
                 break;
             case 44:
                 _44((ins.param_mask & 1) == 1 ? varWrapper.getFloat(ins.readInt()) : ins.readFloat());
@@ -1446,7 +1476,14 @@ public class EclFunctionHandler {
             case 45:
                 // _45((ins.param_mask & 1) == 1 ? eclGlobalVars.getFloat(ins.readInt()) :
                 // ins.readFloat());
-                _45(ins.readFloat());
+              //  _45(ins.readFloat());
+                float f = ins.readFloat();
+                if(f >= 0){
+                    frame.functionPrivateVars.set((int)f,stack.popInt());
+                }else {
+                    EclThreadManager.getInstance().globalVars.put((int)f,stack.popInt());
+                }
+                
                 break;
             case 50:
                 _50();
@@ -1533,9 +1570,15 @@ public class EclFunctionHandler {
                 _77();
                 break;
             case 78:
-                int varPos = ins.readInt();
-                _78((ins.param_mask & 1) == 1 ? varWrapper.getInt(varPos) : ins.readInt());
-                stack.dec(varPos);
+             //      _78((ins.param_mask & 1) == 1 ? int1 : varPos);
+                if((ins.param_mask & 1) == 1){
+                    int varPos = ins.readInt();
+                    int int1 = varWrapper.getInt(varPos);
+                    stack.push(int1 != 0 ? 1 : 0);
+                    varWrapper.putGlobal(varPos,--int1); 
+                }else{
+                    stack.push(ins.readInt() != 0 ? 1 : 0);     
+                }
                 break;
             case 81:
                 _81((ins.param_mask & 1) == 1 ? varWrapper.getFloat(ins.readInt()) : ins.readFloat(),

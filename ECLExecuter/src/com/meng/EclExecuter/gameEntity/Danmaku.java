@@ -5,6 +5,27 @@ import java.util.Arrays;
 
 public class Danmaku extends BaseGameObject implements Cloneable {
 
+    public void setStyle(int style) {
+    }
+
+    public void setWaysAndOverlap(int way, int ceng) {
+    }
+
+    public void setSpeed(float speed, float slowestSpeed) {
+    }
+
+    public void setDirectionAndSub(float direct, float r) {
+    }
+
+    public void setOffsetCartesian(float offsetX, float offsetY) {
+    }
+
+    public void setFormAndColor(int form, int color) {
+    }
+
+    public void shoot() {
+    }
+
     public void invoke(Object... args) {
         System.out.println(Arrays.toString(args));
     }

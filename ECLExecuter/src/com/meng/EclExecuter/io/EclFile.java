@@ -75,9 +75,9 @@ public class EclFile {
             } 
         }
         byteReader.moveToNextInt();
-        for (int i = 1;i < eclHeader.sub_count - 1;i++) {
-            EclFunction eclf = new EclFunction(byteReader.fileByte, functionIndex[i - 1], functionIndex[i]);
-            EclThreadManager.getInstance().eclFunctions.put(offsetToName.get(functionIndex[i - 1]) , eclf);
+        for (int i = 0;i < eclHeader.sub_count - 1;i++) {
+            EclFunction eclf = new EclFunction(byteReader.fileByte, functionIndex[i], functionIndex[i + 1]);
+            EclThreadManager.getInstance().eclFunctions.put(offsetToName.get(functionIndex[i]) , eclf);
             byteReader.readInt();//magic
             byteReader.readInt();//data offset;
             byteReader.readInt();//0

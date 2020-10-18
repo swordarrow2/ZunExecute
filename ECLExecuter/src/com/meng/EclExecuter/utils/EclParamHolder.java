@@ -7,22 +7,22 @@ public class EclParamHolder {
     private float vf;
     private String s;
 
-    public static EclParamHolder get(int i){
+    public static EclParamHolder get(int i) {
         return new EclParamHolder(i);
     }
-    
-    public static EclParamHolder get(float f){
+
+    public static EclParamHolder get(float f) {
         return new EclParamHolder(f);
     }
-    
-    public static EclParamHolder get(String s){
+
+    public static EclParamHolder get(String s) {
         return new EclParamHolder(s);
     }
-    
-    public static EclParamHolder get(){
+
+    public static EclParamHolder get() {
         return new EclParamHolder();
     }
-    
+
     private EclParamHolder(int i) {
         init(i);
     }
@@ -34,9 +34,9 @@ public class EclParamHolder {
     private EclParamHolder(String s) {
         init(s);
     }
-    
-    private EclParamHolder(){
-        
+
+    private EclParamHolder() {
+
     }
 
     public EclParamHolder init(float f) {
@@ -81,6 +81,14 @@ public class EclParamHolder {
     }
 
     public String getString() {
+        return s;
+    }
+
+    @Override
+    public String toString() {
+        if (s == null) {
+            return isInt ? Integer.toString(vi): Float.toString(vf);
+        }
         return s;
     }
 }

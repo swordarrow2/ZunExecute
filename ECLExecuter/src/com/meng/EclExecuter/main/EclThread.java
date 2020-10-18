@@ -1,9 +1,9 @@
 package com.meng.EclExecuter.main;
 
+import com.meng.EclExecuter.ExecuterMain;
 import com.meng.EclExecuter.gameEntity.Enemy;
 import com.meng.EclExecuter.utils.EclParamHolder;
 import java.util.LinkedList;
-import com.meng.EclExecuter.gameEntity.Danmaku;
 
 public class EclThread {
 
@@ -14,9 +14,12 @@ public class EclThread {
     private int waitFrame = 0;
     private int id = -1;
     private Enemy enemy = null;
+    public EclFunctionHandler handler;
+    public Runnable watcher = null;
 
     public EclThread(EclThread parent) {
         this.parent = parent;
+        handler = new EclFunctionHandler(this);
     }
 
     public EclThread setId(int id) {
@@ -42,6 +45,8 @@ public class EclThread {
 
     public EclThread invokeEclFunction(EclParamHolder... args) {
         functionStack.push(current = new EclFunctionStackFrame(this, args));
+        System.out.println(args[0].getString() + " start");
+        ExecuterMain.currentPartFrameCount = 0;
         return this;
     }
 
@@ -51,125 +56,105 @@ public class EclThread {
     }
 
     public void functionReturn() {
+        System.out.println(current + " return");
         functionStack.pop();
         current = functionStack.peek();
         if (current == null) {
             EclThreadManager.getInstance().killThread(this);
+            System.out.println("Thread end");
+            return;
         }
     }
 
     public void nextFrame() {
         current.nextFrame();
+        if(watcher != null){
+            watcher.run();
+        }
     }
 
     private class EclFunctionStack {
         private LinkedList<EclFunctionStackFrame> list = new LinkedList<>();
 
         public EclFunctionStackFrame pop() {
-            return list.removeLast();
+            if (list.size() == 0) {
+                return null;
+            }
+            EclFunctionStackFrame removeLast = list.removeLast();
+            handler.notifyCurrent(peek());
+            return removeLast;
         }
 
         public EclFunctionStackFrame push(EclFunctionStackFrame eclFunction) {
             list.addLast(eclFunction);
+            handler.notifyCurrent(eclFunction);
             return eclFunction;
         }
 
         public EclFunctionStackFrame peek() {
+            if (list.size() == 0) {
+                return null;
+            }
+            handler.notifyCurrent(list.getLast());
             return list.getLast();
+        }
+        
+        public void ins_525(){
+            
         }
     }
 
     public class EclThreadVarStack {
 
-        private final int maxDepth = 32;
+        private int max = 0;
+        private final int maxDepth = 512;
         private int intDepth = 0;
         private int[] stack = new int[maxDepth];
-
+        
         public void push(int n) {
             if (intDepth == maxDepth - 1) {
-                throw new RuntimeException("stack full");
+                throw new RuntimeException("EclStackOverflow");
             }
             stack[intDepth++] = n;
         }
 
         public void push(float n) {
-            if (intDepth == maxDepth - 1) {
-                throw new RuntimeException("stack full");
+            if(intDepth > max){
+                max = intDepth;
+                System.out.println("max:"+max);
             }
-            stack[intDepth++] = Float.floatToRawIntBits(n);
-        }
-
-        public void push(Enemy e) {
-            push((Object)e);
-        }
-
-        public void push(Danmaku d) {
-            push((Object)d);
-        }
-
-        public void push(Object o) {
-            push(o.hashCode());
-            EclThreadManager.getInstance().objectPool.put(o.hashCode(), o);
-        }
-
-        public Object popObject() {
-            return EclThreadManager.getInstance().objectPool.remove(popInt());
-        }
-
-        public <T> T popObject(Class<?> cls) {
-            return (T)popObject();
-        }
-
-        public Enemy popEnemy() {
-            return popObject(Enemy.class);
-        }
-
-        public Danmaku popDanmaku() {
-            return popObject(Danmaku.class);
+            push(Float.floatToRawIntBits(n));
         }
 
         public int popInt() {
             if (intDepth == 0) {
-                throw new RuntimeException("stack blank");
+                throw new RuntimeException("EclStackUnderflow");
             }
             return stack[--intDepth];
         }
 
         public float popFloat() {
-            if (intDepth == 0) {
-                throw new RuntimeException("stack blank");
-            }
-            return Float.intBitsToFloat(stack[--intDepth]);
+            return Float.intBitsToFloat(popInt());
         }
 
         public int peekInt() {
             if (intDepth == 0) {
-                throw new RuntimeException("stack blank");
+                throw new RuntimeException("EclStackUnderflow");
             }
             return stack[intDepth - 1];
         }
 
         public float peekFloat() {
-            if (intDepth == 0) {
-                throw new RuntimeException("stack blank");
+            return Float.intBitsToFloat(peekInt());
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0;i < intDepth;++i){
+                sb.append(stack[i]).append(" ");
             }
-            return Float.intBitsToFloat(stack[intDepth - 1]);
-        }
-
-        public Object peekObject() {
-            return EclThreadManager.getInstance().objectPool.get(peekInt());
-        }
-
-        public <T> T peekObject(Class<?> cls) {
-            return (T)peekObject();
-        }
-
-        public Enemy peekEnemy() {
-            return peekObject(Enemy.class);
-        }
-
-        public Danmaku peekDanmaku() {
-            return peekObject(Danmaku.class);
+            return sb.toString();
         }
     }
 }

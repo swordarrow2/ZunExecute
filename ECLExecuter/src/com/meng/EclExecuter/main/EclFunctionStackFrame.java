@@ -9,25 +9,27 @@ import com.meng.EclExecuter.gameEntity.Danmaku;
 
 public class EclFunctionStackFrame {
 
+    public String name;
     private EclThread thread;
-    private EclFunction function;
-    private int pointer;
+    public EclFunction function;
+    public int pointer;
     public EclFunctionPrivateVarStorage functionPrivateVars = new EclFunctionPrivateVarStorage();
     private EclParamHolder[] params;
     public IntMap<Danmaku> danmakus = new IntMap<>();
-    
-    public EclFunctionStackFrame(EclThread et, EclParamHolder... args) {
-        thread = et;
-        function = EclThreadManager.getInstance().eclFunctions.get(args[0].getString());
-        pointer = function.start;
-        params =  args;  
-    }
-    
-    public EclThread getThread(){
-        return thread;
+    public boolean needBreak = false;
+    public boolean functionEnd = false;
+
+    @Override
+    public String toString() {
+        return name;
     }
 
-    public void nextFrame() {
+    public EclFunctionStackFrame(EclThread et, EclParamHolder... args) {
+        thread = et;
+        function = EclThreadManager.getInstance().eclFunctions.get(name = args[0].getString());
+        System.out.println(name);
+        pointer = function.start;
+        params =  args;
         System.out.println(String.format("start:%x,end:%x,len:%d", function.start, function.end, function.end - function.start));
         EclSub esub = new EclSub();
         BitConverter bc = BitConverter.getInstanceLittleEndian();
@@ -39,34 +41,49 @@ public class EclFunctionStackFrame {
         pointer += 4;
         esub.zero[1] = bc.toInt(function.code, pointer);
         pointer += 4;
-        while (pointer != function.end) {
-            //TODO:ins execute
-            EclIns el = readIns();
-            System.out.println(el);
-        }
-        thread.functionReturn();
     }
 
-    private EclIns readIns() {
+    public void nextFrame() {
+        while (pointer != function.end) {
+            if (needBreak) {
+                needBreak = false;
+                break;
+            }
+            EclIns el = readIns(pointer);
+            pointer += el.size;
+            thread.handler.invoke(el);
+            if (functionEnd) {
+                thread.functionReturn();
+                functionEnd = false;
+            }
+        }
+        if (pointer == function.end) {
+            functionEnd = true;
+        }
+        if (functionEnd) {
+            thread.functionReturn();
+        }
+    }
+
+    private EclIns readIns(int readPointer) {
         BitConverter bc = BitConverter.getInstanceLittleEndian();
 
         EclIns eclins = new EclIns();
-        eclins.time = bc.toInt(function.code, pointer);
-        pointer += 4;
-        eclins.id = bc.toShort(function.code, pointer);
-        pointer += 2;
-        eclins.size = bc.toShort(function.code, pointer);
-        pointer += 2;
-        eclins.param_mask = bc.toShort(function.code, pointer);
-        pointer += 2;
-        eclins.rank_mask = function.code[pointer];
-        pointer += 1;
-        eclins.param_count = function.code[pointer];
-        pointer += 1;
-        eclins.zero = bc.toInt(function.code, pointer);
-        pointer += 4;
-        eclins.data = readArray(pointer, eclins.size - 16);
-        pointer += eclins.size - 16;
+        eclins.time = bc.toInt(function.code, readPointer);
+        readPointer += 4;
+        eclins.id = bc.toShort(function.code, readPointer);
+        readPointer += 2;
+        eclins.size = bc.toShort(function.code, readPointer);
+        readPointer += 2;
+        eclins.param_mask = bc.toShort(function.code, readPointer);
+        readPointer += 2;
+        eclins.rank_mask = function.code[readPointer];
+        readPointer += 1;
+        eclins.param_count = function.code[readPointer];
+        readPointer += 1;
+        eclins.zero = bc.toInt(function.code, readPointer);
+        readPointer += 4;
+        eclins.data = readArray(readPointer, eclins.size - 16);
         return eclins;
     }
 
@@ -79,18 +96,15 @@ public class EclFunctionStackFrame {
     }
 
     public class EclFunctionPrivateVarStorage {
-        private EclParamHolder[] var;
+        public EclParamHolder[] var;
 
         public void init(int byteSize) {
             var = new EclParamHolder[byteSize / 4];
             if (params.length > 1) {
                 for (int i=1;i < params.length;++i) {
                     EclParamHolder eph = params[i];
-                    if (eph.isInt()) {
-                        functionPrivateVars.set((i - 1) * 4, eph.getint());
-                    } else {
-                        functionPrivateVars.set((i - 1) * 4, eph.getFloat());
-                    }
+                    var[(i - 1)] = eph;
+
                 }
             }
             params = null;
@@ -109,7 +123,17 @@ public class EclFunctionStackFrame {
         }
 
         public float getFloat(int byteOffset) {
+            System.out.println(functionPrivateVars);
             return var[byteOffset / 4].getFloat();
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder();
+            for (EclParamHolder eph :var) {
+                sb.append(eph).append(" ");
+            }
+            return sb.toString();
         }
 
     }
@@ -148,7 +172,7 @@ public class EclFunctionStackFrame {
 
         @Override
         public String toString() {
-            return String.format("time:%x,id:%d,size:%d,pmask:%d,rank:%d,pcount:%d,zero:%d,data:%s", time, id, size, param_mask, rank_mask, param_count, zero, Arrays.toString(data));
+            return String.format("time:%x,id:%d,size:%d,pmask:%d,rank:%s,pcount:%d,zero:%d,data:%s", time, id, size, param_mask, Integer.toBinaryString(rank_mask).substring(24), param_count, zero, Arrays.toString(data));
         }
 
         public int readInt() {
